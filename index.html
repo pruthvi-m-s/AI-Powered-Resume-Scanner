@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AI Resume Scanner</title>
+  <link rel="stylesheet" href="/statics/style.css">
+</head>
+<body>
+  <div class="particles-bg"></div>
+  <div class="container">
+    <h1>AI Resume Scanner</h1>
+    <p class="motivational-quote">Upload a resume (PDF) and paste the job description — the scanner will extract skills, compute a match score and show which skills are missing.</p>
+
+    <form id="upload-form" class="upload-form">
+      <div class="form-group">
+        <label for="job_description"><i class="icon-doc"></i> Job description</label>
+        <textarea id="job_description" name="job_description" placeholder="Paste the job description here..."></textarea>
+      </div>
+
+      <div class="form-group file-input-wrapper">
+        <label class="file-input-label" for="resume-input"><i class="icon-upload"></i> Choose resume (PDF)</label>
+        <input id="resume-input" type="file" name="resume" accept=".pdf" />
+        <div id="file-name" class="file-name">No file chosen</div>
+      </div>
+
+      <div class="form-group">
+        <button id="upload-btn" type="submit"><i class="icon-send"></i> Analyze Resume</button>
+      </div>
+    </form>
+
+    <div id="result">
+      <div class="score-section">
+        <div class="score-circle" id="score-circle">0%</div>
+        <h3 id="score-text">Match score</h3>
+      </div>
+
+      <div class="skills-section">
+        <h3><i class="icon-star"></i> Extracted skills</h3>
+        <div class="skills-list" id="skills-list"></div>
+      </div>
+
+      <div class="skills-section" style="margin-top:1.5rem;">
+        <h3><i class="icon-warning"></i> Missing skills (according to job description)</h3>
+        <div class="skills-list" id="missing-list"></div>
+      </div>
+
+    </div>
+
+    <div style="text-align:center; margin-top:1.5rem;">
+      <button id="history-btn" class="file-input-label" style="width:auto;">View last 10 analyses</button>
+    </div>
+
+    <div id="history" style="max-width:800px; margin:1.5rem auto; display:none;"></div>
+
+  </div>
+
+
+<script>
+// UI helpers
+const fileInput = document.getElementById('resume-input');
+const fileNameEl = document.getElementById('file-name');
+fileInput.addEventListener('change', () => {
+  fileNameEl.textContent = fileInput.files[0]?.name || 'No file chosen';
+});
+
+const form = document.getElementById('upload-form');
+const uploadBtn = document.getElementById('upload-btn');
+const resultEl = document.getElementById('result');
+const scoreCircle = document.getElementById('score-circle');
+const skillsList = document.getElementById('skills-list');
+const missingList = document.getElementById('missing-list');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!fileInput.files.length) { alert('Please choose a PDF resume first'); return; }
+
+  uploadBtn.disabled = true;
+  const spinner = document.createElement('span'); spinner.className = 'spinner';
+  uploadBtn.appendChild(spinner);
+
+  const fd = new FormData(form);
+  try {
+    const res = await fetch('/upload', { method: 'POST', body: fd });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Upload failed');
+    }
+    const data = await res.json();
+
+    // Populate UI
+    const pct = data.score ?? 0;
+    scoreCircle.textContent = pct + '%';
+    scoreCircle.style.borderColor = pct > 70 ? 'var(--secondary-color)' : 'var(--accent-color)';
+
+    skillsList.innerHTML = '';
+    (data.skills || []).forEach(s => {
+      const tag = document.createElement('div'); tag.className = 'skill-tag'; tag.textContent = s; skillsList.appendChild(tag);
+    });
+
+    // If API returns missing_skills, show them. Otherwise blank.
+    missingList.innerHTML = '';
+    (data.missing_skills || []).forEach(s => {
+      const tag = document.createElement('div'); tag.className = 'skill-tag'; tag.textContent = s; missingList.appendChild(tag);
+    });
+
+    resultEl.classList.add('show');
+  } catch (err) {
+    alert('Error: ' + err.message);
+    console.error(err);
+  } finally {
+    uploadBtn.disabled = false;
+    const spinnerEl = uploadBtn.querySelector('.spinner'); if (spinnerEl) spinnerEl.remove();
+  }
+});
+
+// History
+document.getElementById('history-btn').addEventListener('click', async () => {
+  const historyEl = document.getElementById('history');
+  try {
+    const res = await fetch('/history');
+    if (!res.ok) throw new Error('Could not fetch history');
+    const json = await res.json();
+    historyEl.style.display = 'block';
+    historyEl.innerHTML = '<h3 style="text-align:center;">Last 10 Analyses</h3>' +
+      json.map(h => `\n        <div class="upload-form" style="margin-bottom:0.8rem; padding:0.8rem;">
+            <strong>${h.resume_name}</strong> — <em>${h.analysis_date}</em>
+            <div>Score: ${h.match_score}%</div>
+            <div style="margin-top:0.5rem;">Skills matched: ${ (h.skills_matched || []).join(', ') }</div>
+        </div>
+      `).join('');
+  } catch (err) {
+    alert('Could not load history');
+  }
+});
+
+</script>
+
+</body>
+</html>
