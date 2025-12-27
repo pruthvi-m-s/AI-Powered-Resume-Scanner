@@ -2,7 +2,7 @@
 
 An AI-driven resume screening tool that uses Natural Language Processing (NLP) to parse, analyze, and match resumes against job descriptions. This helps recruiters and job seekers understand compatibility, missing keywords, and strengths.
 
-##Features
+Features
 
 - Extracts text from resumes (`.pdf`, `.docx`, `.txt`)  
 - Parses job descriptions  
